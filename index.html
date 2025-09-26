@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京周辺 陸上競技場マップ</title>
+    <!-- Leaflet.jsのCSS（地図の見た目を整える） -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+    <!-- Leaflet.jsのJavaScript本体 -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+    <style>
+        /* 基本的なページのスタイル */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        /* 地図を表示するコンテナのスタイル */
+        #map {
+            flex-grow: 1; /* ヘッダー以外の残りの高さをすべて使う */
+        }
+        /* ポップアップのスタイルを少し調整 */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+        .leaflet-popup-content {
+            margin: 13px 19px;
+            font-size: 14px;
+        }
+        .stadium-link {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 12px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        .stadium-link:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header>
+            <h1>東京周辺 陸上競技場マップ</h1>
+        </header>
+        <!-- 地図が表示されるdiv要素 -->
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // --- 競技場のデータ ---
+        // 本来はデータベースなどから取得しますが、今回はサンプルとしてここに記述します。
+        // 各競技場の名前、緯度経度、一般開放の案内ページのURLを記載します。
+        const stadiums = [
+            {
+                name: '駒沢オリンピック公園総合運動場陸上競技場',
+                lat: 35.6236,
+                lng: 139.6630,
+                url: 'https://www.tef.or.jp/kopg/training_top.jsp'
+            },
+            {
+                name: '代々木公園陸上競技場',
+                lat: 35.6685,
+                lng: 139.6950,
+                url: 'https://www.tokyo-park.or.jp/park/format/index039.html'
+            },
+            {
+                name: '江戸川区陸上競技場',
+                lat: 35.7088,
+                lng: 139.8706,
+                url: 'https://www.edogawa-3field.jp/stadium/personal/'
+            },
+            {
+                name: '世田谷区立大蔵運動公園陸上競技場',
+                lat: 35.6360,
+                lng: 139.6102,
+                url: 'https://www.se-sports.or.jp/facility/okura/okura.php'
+            },
+            {
+                name: '夢の島公園陸上競技場',
+                lat: 35.6558,
+                lng: 139.8275,
+                url: 'https://www.yumenoshima.jp/personal.html'
+            }
+        ];
+
+        // --- 地図の初期設定 ---
+        // 'map'というIDを持つdiv要素に地図を表示します。
+        // 中心は東京駅あたり、ズームレベルは11に設定。
+        const map = L.map('map').setView([35.6812, 139.7671], 11);
+
+        // --- 背景地図の設定 ---
+        // OpenStreetMapから地図タイルを読み込んで表示します。
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // --- マーカーの作成と表示 ---
+        // 競技場のデータを一つずつ取り出してマーカーを設置します。
+        stadiums.forEach(stadium => {
+            // 絵文字をアイコンとして使うための設定
+            const stadiumIcon = L.divIcon({
+                html: '🏟️',
+                className: 'emoji-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30] // アイコンのどの位置を緯度経度に合わせるか
+            });
+
+            const marker = L.marker([stadium.lat, stadium.lng], { icon: stadiumIcon }).addTo(map);
+
+            // マーカーがクリックされたときに表示されるポップアップの中身を作成
+            const popupContent = `
+                <b>${stadium.name}</b><br>
+                <a href="${stadium.url}" target="_blank" rel="noopener noreferrer" class="stadium-link">
+                    利用状況を確認
+                </a>
+            `;
+
+            // マーカーにポップアップを紐付け
+            marker.bindPopup(popupContent);
+        });
+
+    </script>
+</body>
+</html>
