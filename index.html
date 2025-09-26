@@ -3,149 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>東京周辺 陸上競技場マップ</title>
-    <!-- Leaflet.jsのCSS（地図の見た目を整える） -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
-    <!-- Leaflet.jsのJavaScript本体 -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
+    <title>関東 陸上競技場マップ</title>
+    <!-- Leaflet.jsのCSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Leaflet.jsのJavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <style>
-        /* 基本的なページのスタイル */
         html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
+            height: 100%; margin: 0; padding: 0;
             font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f0f2f5;
         }
-        #app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
+        #app-container { display: flex; flex-direction: column; height: 100%; }
         header {
-            background-color: #2c3e50;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #2c3e50; color: white; padding: 1rem;
+            text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
         }
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-        }
-        /* 地図を表示するコンテナのスタイル */
-        #map {
-            flex-grow: 1; /* ヘッダー以外の残りの高さをすべて使う */
-        }
-        /* ポップアップのスタイルを少し調整 */
-        .leaflet-popup-content-wrapper {
-            border-radius: 8px;
-        }
-        .leaflet-popup-content {
-            margin: 13px 19px;
-            font-size: 14px;
-        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        #user-info { font-size: 0.8rem; margin-top: 4px; opacity: 0.8; }
+        #map { flex-grow: 1; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; }
+        .leaflet-popup-content { margin: 15px 20px; font-size: 14px; line-height: 1.6; }
         .stadium-link {
-            display: inline-block;
-            margin-top: 8px;
-            padding: 6px 12px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            transition: background-color 0.3s;
+            display: inline-block; margin-top: 10px; padding: 8px 14px;
+            background-color: #3498db; color: white; text-decoration: none;
+            border-radius: 5px; transition: background-color 0.3s;
         }
-        .stadium-link:hover {
-            background-color: #2980b9;
+        .stadium-link:hover { background-color: #2980b9; }
+        .plan-buttons { margin-top: 12px; display: flex; gap: 8px; }
+        .plan-button {
+            flex: 1; padding: 8px; border: 1px solid #ccc;
+            background-color: #f4f4f4; border-radius: 5px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .plan-button:hover { background-color: #e9e9e9; border-color: #999; }
+        .plan-button.cancel { background-color: #e74c3c; color: white; border-color: #c0392b; }
+        .plan-button.active {
+            background-color: #2ecc71; color: white; border-color: #27ae60; font-weight: bold;
+        }
+        .plan-button:disabled { background-color: #bdc3c7; cursor: not-allowed; color: #7f8c8d; }
+        .attendees { margin-top: 10px; font-size: 12px; color: #555; }
+        .attendees b { color: #000; }
+        .emoji-icon {
+            font-size: 28px;
+            text-shadow: 0 0 3px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .attendance-badge {
+            position: absolute; top: -5px; right: -8px;
+            background-color: #e74c3c; color: white;
+            border-radius: 50%; width: 18px; height: 18px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold;
+            border: 2px solid white;
         }
     </style>
 </head>
 <body>
     <div id="app-container">
         <header>
-            <h1>東京周辺 陸上競技場マップ</h1>
+            <h1>関東 陸上競技場マップ</h1>
+            <div id="user-info"></div>
         </header>
-        <!-- 地図が表示されるdiv要素 -->
         <div id="map"></div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
     <script>
-        // --- 競技場のデータ ---
-        // 本来はデータベースなどから取得しますが、今回はサンプルとしてここに記述します。
-        // 各競技場の名前、緯度経度、一般開放の案内ページのURLを記載します。
+        // --- AthLogと同じFirebaseプロジェクト設定 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8oCOusnqZCSax9ZY3-n4KNt2AxEmvT-E",
+            authDomain: "athlog-126d2.firebaseapp.com",
+            projectId: "athlog-126d2",
+            storageBucket: "athlog-126d2.appspot.com",
+            messagingSenderId: "784178114661",
+            appId: "1:784178114661:web:d41103b0dad1187b85168c"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        // --- グローバル変数 ---
+        let teamId = null;
+        let memberId = null;
+        let isLoggedIn = false;
+        const markers = {};
+        let plansUnsubscribe = null;
+
+        // --- 競技場データ ---
         const stadiums = [
-            {
-                name: '駒沢オリンピック公園総合運動場陸上競技場',
-                lat: 35.6236,
-                lng: 139.6630,
-                url: 'https://www.tef.or.jp/kopg/training_top.jsp'
-            },
-            {
-                name: '代々木公園陸上競技場',
-                lat: 35.6685,
-                lng: 139.6950,
-                url: 'https://www.tokyo-park.or.jp/park/format/index039.html'
-            },
-            {
-                name: '江戸川区陸上競技場',
-                lat: 35.7088,
-                lng: 139.8706,
-                url: 'https://www.edogawa-3field.jp/stadium/personal/'
-            },
-            {
-                name: '世田谷区立大蔵運動公園陸上競技場',
-                lat: 35.6360,
-                lng: 139.6102,
-                url: 'https://www.se-sports.or.jp/facility/okura/okura.php'
-            },
-            {
-                name: '夢の島公園陸上競技場',
-                lat: 35.6558,
-                lng: 139.8275,
-                url: 'https://www.yumenoshima.jp/personal.html'
-            }
+            // 東京
+            { id: 'komazawa', name: '駒沢オリンピック公園総合運動場陸上競技場', lat: 35.6236, lng: 139.6630, url: 'https://www.tef.or.jp/kopg/training_top.jsp' },
+            { id: 'yoyogi', name: '代々木公園陸上競技場', lat: 35.6685, lng: 139.6950, url: 'https://www.tokyo-park.or.jp/park/format/index039.html' },
+            { id: 'edogawa', name: '江戸川区陸上競技場', lat: 35.7088, lng: 139.8706, url: 'https://www.edogawa-3field.jp/stadium/personal/' },
+            { id: 'okura', name: '世田谷区立大蔵運動公園陸上競技場', lat: 35.6360, lng: 139.6102, url: 'https://www.se-sports.or.jp/facility/okura/okura.php' },
+            { id: 'yumenoshima', name: '夢の島公園陸上競技場', lat: 35.6558, lng: 139.8275, url: 'https://www.yumenoshima.jp/personal.html' },
+            { id: 'national', name: '国立競技場', lat: 35.6778, lng: 139.7145, url: 'https://www.jpnsport.go.jp/' },
+            // 神奈川
+            { id: 'nissan', name: '日産スタジアム', lat: 35.5101, lng: 139.6063, url: 'https://www.nissan-stadium.jp/track/index.php' },
+            { id: 'todoroki', name: '等々力陸上競技場', lat: 35.5866, lng: 139.6508, url: 'https://www.city.kawasaki.jp/shisetsu/category/30-4-0-0-0-0-0-0-0-0.html' },
+            { id: 'hiratsuka', name: 'レモンガススタジアム平塚', lat: 35.3400, lng: 139.3400, url: 'https://www.bellmare-park.com/' },
+            // 埼玉
+            { id: 'saitama', name: '埼玉スタジアム2002', lat: 35.9038, lng: 139.7166, url: 'https://www.stadium2002.com/' },
+            { id: 'kumagaya', name: '熊谷スポーツ文化公園陸上競技場', lat: 36.1600, lng: 139.4215, url: 'https://www.parks.or.jp/kumagaya/' },
+            // 千葉
+            { id: 'chiba', name: '千葉県総合スポーツセンター陸上競技場', lat: 35.6262, lng: 140.1473, url: 'http://www.cue-net.or.jp/kouen/sportscenter/index.html' },
+            { id: 'fukuda', name: 'フクダ電子アリーナ', lat: 35.5900, lng: 140.1218, url: 'https://www.soga-sportspark.com/facility/fukuda.html' },
         ];
+        
+        // --- ヘルパー関数 ---
+        // Dateオブジェクトを 'YYYY-MM-DD' 形式の文字列に変換
+        function getYMD(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
 
         // --- 地図の初期設定 ---
-        // 'map'というIDを持つdiv要素に地図を表示します。
-        // 中心は東京駅あたり、ズームレベルは11に設定。
-        const map = L.map('map').setView([35.6812, 139.7671], 11);
-
-        // --- 背景地図の設定 ---
-        // OpenStreetMapから地図タイルを読み込んで表示します。
+        const map = L.map('map').setView([35.7, 139.75], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // --- マーカーの作成と表示 ---
-        // 競技場のデータを一つずつ取り出してマーカーを設置します。
-        stadiums.forEach(stadium => {
-            // 絵文字をアイコンとして使うための設定
-            const stadiumIcon = L.divIcon({
-                html: '🏟️',
-                className: 'emoji-icon',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30] // アイコンのどの位置を緯度経度に合わせるか
+        // --- Firestore関連の関数 ---
+        async function setPlan(stadiumId, plan) {
+            if (!isLoggedIn) return;
+            const planRef = db.collection('teams').doc(teamId).collection('stadium_plans').doc(stadiumId);
+            const data = {
+                plan: plan, // 'today' or 'tomorrow'
+                ts: firebase.firestore.FieldValue.serverTimestamp() // サーバーのタイムスタンプを使用
+            };
+
+            try {
+                if (plan === 'cancel') {
+                    await planRef.update({ [`attendees.${memberId}`]: firebase.firestore.FieldValue.delete() });
+                } else {
+                    await planRef.set({ attendees: { [memberId]: data } }, { merge: true });
+                }
+            } catch (error) {
+                console.error("Plan update failed:", error);
+            }
+        }
+
+        // --- UI更新のメイン関数 ---
+        function updateMarkersUI(plans) {
+            const todayStr = getYMD(new Date());
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = getYMD(yesterday);
+
+            stadiums.forEach(stadium => {
+                const marker = markers[stadium.id];
+                if (!marker) return;
+
+                const stadiumPlan = plans[stadium.id];
+                const attendees = stadiumPlan?.attendees || {};
+                
+                const goingToday = [];
+                const goingTomorrow = [];
+                let currentUserPlan = null;
+
+                for (const member in attendees) {
+                    const { plan, ts } = attendees[member];
+                    // Firestoreのタイムスタンプは .toDate() でJSのDateオブジェクトに変換
+                    const planDate = ts ? ts.toDate() : new Date(0);
+                    const planDateStr = getYMD(planDate);
+                    let isPlanValid = false;
+
+                    if (plan === 'today' && planDateStr === todayStr) {
+                        goingToday.push(member);
+                        isPlanValid = true;
+                    } else if (plan === 'tomorrow' && (planDateStr === todayStr || planDateStr === yesterdayStr)) {
+                        goingTomorrow.push(member);
+                        isPlanValid = true;
+                    }
+                    
+                    if (member === memberId && isPlanValid) {
+                        currentUserPlan = plan;
+                    }
+                }
+
+                // アイコンのバッジを更新
+                const totalAttendees = goingToday.length + goingTomorrow.length;
+                const iconHtml = `🏟️${totalAttendees > 0 ? `<div class="attendance-badge">${totalAttendees}</div>` : ''}`;
+                marker.getIcon().options.html = iconHtml;
+                marker.setIcon(marker.getIcon());
+
+                // ポップアップの中身を更新
+                let attendeesHtml = '<div class="attendees">';
+                if (goingToday.length > 0) attendeesHtml += `<b>今日:</b> ${goingToday.join(', ')}<br>`;
+                if (goingTomorrow.length > 0) attendeesHtml += `<b>明日:</b> ${goingTomorrow.join(', ')}`;
+                if (totalAttendees === 0) attendeesHtml += '今日の予定はありません';
+                attendeesHtml += '</div>';
+
+                const disabledAttr = isLoggedIn ? '' : 'disabled';
+                const popupContent = `
+                    <b>${stadium.name}</b><br>
+                    ${attendeesHtml}
+                    <a href="${stadium.url}" target="_blank" rel="noopener noreferrer" class="stadium-link">
+                        公式サイトで確認
+                    </a>
+                    <div class="plan-buttons">
+                        <button class="plan-button ${currentUserPlan === 'today' ? 'active' : ''}" onclick="setPlan('${stadium.id}', 'today')" ${disabledAttr}>今日行く</button>
+                        <button class="plan-button ${currentUserPlan === 'tomorrow' ? 'active' : ''}" onclick="setPlan('${stadium.id}', 'tomorrow')" ${disabledAttr}>明日行く</button>
+                        <button class="plan-button cancel" onclick="setPlan('${stadium.id}', 'cancel')" ${disabledAttr}>取消</button>
+                    </div>
+                `;
+                marker.setPopupContent(popupContent);
             });
+        }
+        
+        function listenToPlans() {
+            if (plansUnsubscribe) plansUnsubscribe();
+            if (!isLoggedIn) return;
 
-            const marker = L.marker([stadium.lat, stadium.lng], { icon: stadiumIcon }).addTo(map);
+            plansUnsubscribe = db.collection('teams').doc(teamId).collection('stadium_plans')
+                .onSnapshot(snapshot => {
+                    const allPlans = {};
+                    snapshot.forEach(doc => {
+                        allPlans[doc.id] = doc.data();
+                    });
+                    updateMarkersUI(allPlans);
+                }, error => console.error("Failed to listen to plans:", error));
+        }
 
-            // マーカーがクリックされたときに表示されるポップアップの中身を作成
-            const popupContent = `
-                <b>${stadium.name}</b><br>
-                <a href="${stadium.url}" target="_blank" rel="noopener noreferrer" class="stadium-link">
-                    利用状況を確認
-                </a>
-            `;
+        // --- アプリケーションの初期化 ---
+        function initialize() {
+            const params = new URLSearchParams(window.location.search);
+            teamId = params.get('team');
+            memberId = params.get('member');
+            const userInfoDiv = document.getElementById('user-info');
 
-            // マーカーにポップアップを紐付け
-            marker.bindPopup(popupContent);
-        });
+            if (teamId && memberId) {
+                isLoggedIn = true;
+                userInfoDiv.textContent = `Team: ${teamId} / Member: ${memberId}`;
+            } else {
+                isLoggedIn = false;
+                userInfoDiv.textContent = 'ログイン情報がありません。AthLogからアクセスしてください。';
+            }
 
+            // マーカーを作成
+            stadiums.forEach(stadium => {
+                const stadiumIcon = L.divIcon({
+                    html: '🏟️', className: 'emoji-icon',
+                    iconSize: [40, 40], iconAnchor: [20, 40]
+                });
+                const marker = L.marker([stadium.lat, stadium.lng], { icon: stadiumIcon }).addTo(map);
+                
+                const disabledAttr = isLoggedIn ? '' : 'disabled';
+                const initialPopupContent = `
+                    <b>${stadium.name}</b><br>
+                    <div class="attendees">予定を読み込み中...</div>
+                     <a href="${stadium.url}" target="_blank" rel="noopener noreferrer" class="stadium-link">
+                        公式サイトで確認
+                    </a>
+                    <div class="plan-buttons">
+                        <button class="plan-button" onclick="setPlan('${stadium.id}', 'today')" ${disabledAttr}>今日行く</button>
+                        <button class="plan-button" onclick="setPlan('${stadium.id}', 'tomorrow')" ${disabledAttr}>明日行く</button>
+                        <button class="plan-button cancel" onclick="setPlan('${stadium.id}', 'cancel')" ${disabledAttr}>取消</button>
+                    </div>
+                `;
+                marker.bindPopup(initialPopupContent);
+                markers[stadium.id] = marker;
+            });
+            
+            listenToPlans();
+            if (!isLoggedIn) {
+                updateMarkersUI({}); // ログインしていない場合は空のデータでUIを初期化
+            }
+        }
+
+        initialize();
     </script>
 </body>
 </html>
+
